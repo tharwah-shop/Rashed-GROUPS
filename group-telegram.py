@@ -120,7 +120,7 @@ async def finish_quiz(query, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 # إعداد التطبيق
 def main() -> None:
-    app = Application.builder().token("YOUR_TELEGRAM_BOT_TOKEN").build()
+    app = Application.builder().token("7324354293:AAESUs8cyUVS6lt1TXE3hNVx4uC3u1nBSfU").build()
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, welcome_message))
     app.add_handler(CommandHandler("start", start))
