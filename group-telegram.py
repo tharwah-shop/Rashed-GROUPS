@@ -4,6 +4,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
 from openpyxl import Workbook, load_workbook
+from datetime import datetime
 
 # إعداد القروبات
 BAHRAIN_GROUP_LINK = "@Rashed_bahrain"
@@ -62,10 +63,12 @@ def save_to_excel(username, answers, phone_number=None):
     else:
         workbook = Workbook()
         sheet = workbook.active
-        headers = ["اسم المستخدم", "الجنسية", "العمر", "الجنس", "الإقامة في البحرين", "رقم الهاتف"]
+        headers = ["تاريخ الإضافة", "اسم المستخدم", "الجنسية", "العمر", "الجنس", "الإقامة في البحرين", "رقم الهاتف"]
         sheet.append(headers)
 
-    row = [username, *answers, phone_number if phone_number else ""]
+    # إضافة تاريخ الإضافة
+    add_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    row = [add_date, username, *answers, phone_number if phone_number else ""]
     sheet.append(row)
     workbook.save(file_path)
 
@@ -117,7 +120,7 @@ async def finish_quiz(query, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 # إعداد التطبيق
 def main() -> None:
-    app = Application.builder().token("7324354293:AAESUs8cyUVS6lt1TXE3hNVx4uC3u1nBSfU").build()
+    app = Application.builder().token("YOUR_TELEGRAM_BOT_TOKEN").build()
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, welcome_message))
     app.add_handler(CommandHandler("start", start))
