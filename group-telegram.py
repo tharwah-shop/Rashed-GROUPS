@@ -1,22 +1,20 @@
 import os
-import ftplib
+from github import Github
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 from openpyxl import Workbook, load_workbook
 from datetime import datetime
+import base64
 
 # إعداد القروبات
 BAHRAIN_GROUP_LINK = "@Rashed_bahrain"
 OTHER_GROUP_LINK = "@Rashed_GCC"
 
-# إعدادات FTP
-FTP_HOST = os.getenv("ftpupload.net")
-FTP_USER = os.getenv("if0_37647175")
-FTP_PASS = os.getenv("UxNE2WeFW7i1Pz")
-FTP_PATH = os.getenv("FTP_PATH", "/")  # مسار الرفع على FTP
-
-# اسم الملف المحلي
-file_path = "responses.xlsx"
+# إعدادات GitHub
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")  # ضع توكن GitHub هنا أو كمتغير بيئي
+REPO_NAME = "tharwah-shop/Rashed-GROUPS"  # اسم المستودع على GitHub (username/repo_name)
+FILE_PATH = "responses.xlsx"
+GITHUB_FILE_PATH = "responses.xlsx"  # المسار في مستودع GitHub حيث سيتم رفع الملف
 
 # الأسئلة
 QUESTIONS = [
@@ -28,10 +26,10 @@ QUESTIONS = [
 
 # إنشاء أو تحديث ملف Excel
 def save_to_excel(username, answers, phone_number=None):
-    file_exists = os.path.isfile(file_path)
+    file_exists = os.path.isfile(FILE_PATH)
 
     if file_exists:
-        workbook = load_workbook(file_path)
+        workbook = load_workbook(FILE_PATH)
         sheet = workbook.active
     else:
         workbook = Workbook()
@@ -42,17 +40,26 @@ def save_to_excel(username, answers, phone_number=None):
     add_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     row = [add_date, username, *answers, phone_number if phone_number else ""]
     sheet.append(row)
-    workbook.save(file_path)
+    workbook.save(FILE_PATH)
 
-# رفع الملف إلى FTP
-def upload_to_ftp():
+# رفع الملف إلى GitHub
+def upload_to_github():
+    g = Github(GITHUB_TOKEN)
+    repo = g.get_repo(REPO_NAME)
+
+    # قراءة محتوى الملف
+    with open(FILE_PATH, "rb") as file:
+        content = file.read()
+        content_encoded = base64.b64encode(content).decode("utf-8")
+
+    # محاولة الحصول على الملف في GitHub للتحقق من وجوده
     try:
-        with ftplib.FTP(FTP_HOST, FTP_USER, FTP_PASS) as ftp:
-            with open(file_path, "rb") as file:
-                ftp.storbinary(f"STOR {FTP_PATH}/{os.path.basename(file_path)}", file)
-        print("File uploaded successfully to FTP server.")
-    except ftplib.all_errors as e:
-        print(f"Failed to upload file to FTP: {e}")
+        file = repo.get_contents(GITHUB_FILE_PATH)
+        repo.update_file(file.path, "تحديث البيانات", content_encoded, file.sha)
+        print("File updated on GitHub.")
+    except Exception as e:
+        repo.create_file(GITHUB_FILE_PATH, "إضافة ملف جديد", content_encoded)
+        print("File created and uploaded to GitHub.")
 
 # رسالة ترحيب أولية
 async def welcome_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -91,10 +98,10 @@ async def finish_quiz(query, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     group_link = BAHRAIN_GROUP_LINK if nationality == "بحريني" else OTHER_GROUP_LINK
 
-    # حفظ بيانات المستخدم في ملف Excel ورفعه إلى FTP
+    # حفظ بيانات المستخدم في ملف Excel ورفعه إلى GitHub
     phone_number = query.message.contact.phone_number if query.message.contact else None
     save_to_excel(user.username, answers, phone_number)
-    upload_to_ftp()  # رفع الملف بعد تحديثه
+    upload_to_github()  # رفع الملف بعد تحديثه
 
     await query.message.reply_text(f"شكرًا لإجابتك على الأسئلة! يمكنك الانضمام إلى القروب المناسب من هنا: {group_link}")
 
