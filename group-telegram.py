@@ -74,6 +74,7 @@ def upload_to_github():
                 print("No changes detected. File not updated.")
         except Exception as e:
             # إذا لم يكن الملف موجودًا، سيتم إنشاؤه
+            print(f"File not found in GitHub. Creating new file.")
             repo.create_file(GITHUB_FILE_PATH, "إضافة ملف جديد", content)
             print("File created and uploaded to GitHub.")
     except Exception as e:
