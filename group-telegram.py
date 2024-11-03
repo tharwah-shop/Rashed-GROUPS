@@ -25,21 +25,33 @@ QUESTIONS = [
 
 # إنشاء أو تحديث ملف Excel
 def save_to_excel(username, answers, phone_number=None):
-    file_exists = os.path.isfile(FILE_PATH)
-
-    if file_exists:
-        workbook = load_workbook(FILE_PATH)
-        sheet = workbook.active
-    else:
-        workbook = Workbook()
-        sheet = workbook.active
-        headers = ["تاريخ الإضافة", "اسم المستخدم", "الجنسية", "العمر", "الجنس", "الإقامة في البحرين", "رقم الهاتف"]
-        sheet.append(headers)
-
-    add_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    row = [add_date, username, *answers, phone_number if phone_number else ""]
-    sheet.append(row)
-    workbook.save(FILE_PATH)
+    try:
+        file_exists = os.path.isfile(FILE_PATH)
+        
+        # فتح الملف إذا كان موجودًا أو إنشاء جديد إذا لم يكن موجودًا
+        if file_exists:
+            print(f"Opening existing file: {FILE_PATH}")
+            workbook = load_workbook(FILE_PATH)
+            sheet = workbook.active
+        else:
+            print(f"Creating new file: {FILE_PATH}")
+            workbook = Workbook()
+            sheet = workbook.active
+            headers = ["تاريخ الإضافة", "اسم المستخدم", "الجنسية", "العمر", "الجنس", "الإقامة في البحرين", "رقم الهاتف"]
+            sheet.append(headers)
+            print("Headers added to new file.")
+        
+        # إضافة صف البيانات
+        add_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        row = [add_date, username, *answers, phone_number if phone_number else ""]
+        sheet.append(row)
+        
+        # حفظ الملف
+        workbook.save(FILE_PATH)
+        print(f"Data saved to {FILE_PATH} successfully.")
+        
+    except Exception as e:
+        print(f"An error occurred while saving the file: {e}")
 
 # رفع الملف إلى GitHub بدون ترميز Base64
 def upload_to_github():
@@ -47,17 +59,20 @@ def upload_to_github():
     repo = g.get_repo(REPO_NAME)
 
     # قراءة محتوى الملف مباشرة كملف ثنائي
-    with open(FILE_PATH, "rb") as file:
-        content = file.read()
-
-    # محاولة الحصول على الملف في GitHub للتحقق من وجوده
     try:
-        file = repo.get_contents(GITHUB_FILE_PATH)
-        repo.update_file(file.path, "تحديث البيانات", content, file.sha)
-        print("File updated on GitHub.")
+        with open(FILE_PATH, "rb") as file:
+            content = file.read()
+
+        # محاولة الحصول على الملف في GitHub للتحقق من وجوده
+        try:
+            file = repo.get_contents(GITHUB_FILE_PATH)
+            repo.update_file(file.path, "تحديث البيانات", content, file.sha)
+            print("File updated on GitHub.")
+        except Exception as e:
+            repo.create_file(GITHUB_FILE_PATH, "إضافة ملف جديد", content)
+            print("File created and uploaded to GitHub.")
     except Exception as e:
-        repo.create_file(GITHUB_FILE_PATH, "إضافة ملف جديد", content)
-        print("File created and uploaded to GitHub.")
+        print(f"An error occurred while uploading the file to GitHub: {e}")
 
 # رسالة ترحيب أولية
 async def welcome_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
