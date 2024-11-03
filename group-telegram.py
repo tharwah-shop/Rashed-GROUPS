@@ -46,7 +46,7 @@ def upload_to_github():
     g = Github(GITHUB_TOKEN)
     repo = g.get_repo(REPO_NAME)
 
-    # قراءة محتوى الملف مباشرة
+    # قراءة محتوى الملف مباشرة كملف ثنائي
     with open(FILE_PATH, "rb") as file:
         content = file.read()
 
