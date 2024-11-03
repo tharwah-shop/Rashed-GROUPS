@@ -1,14 +1,22 @@
 import os
+import ftplib
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
-from pydrive.auth import GoogleAuth
-from pydrive.drive import GoogleDrive
 from openpyxl import Workbook, load_workbook
 from datetime import datetime
 
 # إعداد القروبات
 BAHRAIN_GROUP_LINK = "@Rashed_bahrain"
 OTHER_GROUP_LINK = "@Rashed_GCC"
+
+# إعدادات FTP
+FTP_HOST = os.getenv("ftpupload.net")
+FTP_USER = os.getenv("if0_37647175")
+FTP_PASS = os.getenv("UxNE2WeFW7i1Pz")
+FTP_PATH = os.getenv("FTP_PATH", "/")  # مسار الرفع على FTP
+
+# اسم الملف المحلي
+file_path = "responses.xlsx"
 
 # الأسئلة
 QUESTIONS = [
@@ -18,43 +26,8 @@ QUESTIONS = [
     ("هل أنت مقيم في البحرين؟", ["نعم", "لا"])
 ]
 
-# تهيئة Google Drive API
-def initialize_drive():
-    gauth = GoogleAuth()
-    try:
-        gauth.LoadCredentialsFile("client_secrets.json")
-        gauth.Authorize()
-    except:
-        gauth.LocalWebserverAuth()
-        gauth.SaveCredentialsFile("client_secrets.json")
-    return GoogleDrive(gauth)
-
-drive = initialize_drive()
-
-# رفع الملف إلى Google Drive
-def upload_to_drive(file_path):
-    try:
-        # البحث عن الملف في Google Drive
-        file_list = drive.ListFile({'q': f"title='{os.path.basename(file_path)}' and trashed=false"}).GetList()
-        
-        # إذا كان الملف موجودًا، حدث المحتوى فقط
-        if file_list:
-            file = file_list[0]
-            file.SetContentFile(file_path)
-            file.Upload()
-            print("File updated in Google Drive")
-        else:
-            # إذا لم يكن موجودًا، أنشئ ملفًا جديدًا
-            file = drive.CreateFile({'title': os.path.basename(file_path)})
-            file.SetContentFile(file_path)
-            file.Upload()
-            print("File uploaded to Google Drive")
-    except Exception as e:
-        print(f"Failed to upload file: {e}")
-
-# حفظ البيانات إلى Excel
+# إنشاء أو تحديث ملف Excel
 def save_to_excel(username, answers, phone_number=None):
-    file_path = "Data_Telegram_Rashed_Group.xlsx"
     file_exists = os.path.isfile(file_path)
 
     if file_exists:
@@ -66,14 +39,20 @@ def save_to_excel(username, answers, phone_number=None):
         headers = ["تاريخ الإضافة", "اسم المستخدم", "الجنسية", "العمر", "الجنس", "الإقامة في البحرين", "رقم الهاتف"]
         sheet.append(headers)
 
-    # إضافة تاريخ الإضافة
     add_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     row = [add_date, username, *answers, phone_number if phone_number else ""]
     sheet.append(row)
     workbook.save(file_path)
 
-    # رفع الملف إلى Google Drive بعد تحديثه
-    upload_to_drive(file_path)
+# رفع الملف إلى FTP
+def upload_to_ftp():
+    try:
+        with ftplib.FTP(FTP_HOST, FTP_USER, FTP_PASS) as ftp:
+            with open(file_path, "rb") as file:
+                ftp.storbinary(f"STOR {FTP_PATH}/{os.path.basename(file_path)}", file)
+        print("File uploaded successfully to FTP server.")
+    except ftplib.all_errors as e:
+        print(f"Failed to upload file to FTP: {e}")
 
 # رسالة ترحيب أولية
 async def welcome_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -112,9 +91,10 @@ async def finish_quiz(query, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     group_link = BAHRAIN_GROUP_LINK if nationality == "بحريني" else OTHER_GROUP_LINK
 
-    # حفظ بيانات المستخدم ورفع الملف إلى Google Drive
+    # حفظ بيانات المستخدم في ملف Excel ورفعه إلى FTP
     phone_number = query.message.contact.phone_number if query.message.contact else None
     save_to_excel(user.username, answers, phone_number)
+    upload_to_ftp()  # رفع الملف بعد تحديثه
 
     await query.message.reply_text(f"شكرًا لإجابتك على الأسئلة! يمكنك الانضمام إلى القروب المناسب من هنا: {group_link}")
 
