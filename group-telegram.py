@@ -4,7 +4,6 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 from openpyxl import Workbook, load_workbook
 from datetime import datetime
-import base64
 
 # إعداد القروبات
 BAHRAIN_GROUP_LINK = "@Rashed_bahrain"
@@ -42,23 +41,22 @@ def save_to_excel(username, answers, phone_number=None):
     sheet.append(row)
     workbook.save(FILE_PATH)
 
-# رفع الملف إلى GitHub
+# رفع الملف إلى GitHub بدون ترميز Base64
 def upload_to_github():
     g = Github(GITHUB_TOKEN)
     repo = g.get_repo(REPO_NAME)
 
-    # قراءة محتوى الملف
+    # قراءة محتوى الملف مباشرة
     with open(FILE_PATH, "rb") as file:
         content = file.read()
-        content_encoded = base64.b64encode(content).decode("utf-8")
 
     # محاولة الحصول على الملف في GitHub للتحقق من وجوده
     try:
         file = repo.get_contents(GITHUB_FILE_PATH)
-        repo.update_file(file.path, "تحديث البيانات", content_encoded, file.sha)
+        repo.update_file(file.path, "تحديث البيانات", content, file.sha)
         print("File updated on GitHub.")
     except Exception as e:
-        repo.create_file(GITHUB_FILE_PATH, "إضافة ملف جديد", content_encoded)
+        repo.create_file(GITHUB_FILE_PATH, "إضافة ملف جديد", content)
         print("File created and uploaded to GitHub.")
 
 # رسالة ترحيب أولية
