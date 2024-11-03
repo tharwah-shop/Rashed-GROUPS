@@ -53,22 +53,27 @@ def save_to_excel(username, answers, phone_number=None):
     except Exception as e:
         print(f"An error occurred while saving the file: {e}")
 
-# رفع الملف إلى GitHub بدون ترميز Base64
+# رفع الملف إلى GitHub مع التحقق من التغييرات
 def upload_to_github():
     g = Github(GITHUB_TOKEN)
     repo = g.get_repo(REPO_NAME)
 
-    # قراءة محتوى الملف مباشرة كملف ثنائي
     try:
+        # قراءة محتوى الملف المحلي كملف ثنائي
         with open(FILE_PATH, "rb") as file:
             content = file.read()
 
         # محاولة الحصول على الملف في GitHub للتحقق من وجوده
         try:
             file = repo.get_contents(GITHUB_FILE_PATH)
-            repo.update_file(file.path, "تحديث البيانات", content, file.sha)
-            print("File updated on GitHub.")
+            # مقارنة المحتوى الحالي بالمحتوى الجديد
+            if file.decoded_content != content:
+                repo.update_file(file.path, "تحديث البيانات", content, file.sha)
+                print("File updated on GitHub.")
+            else:
+                print("No changes detected. File not updated.")
         except Exception as e:
+            # إذا لم يكن الملف موجودًا، سيتم إنشاؤه
             repo.create_file(GITHUB_FILE_PATH, "إضافة ملف جديد", content)
             print("File created and uploaded to GitHub.")
     except Exception as e:
