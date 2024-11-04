@@ -1,12 +1,15 @@
 import os
-import mysql.connector
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+from openpyxl import Workbook, load_workbook
 from datetime import datetime
 
 # إعداد القروبات
 BAHRAIN_GROUP_LINK = "@Rashed_bahrain"
 OTHER_GROUP_LINK = "@Rashed_GCC"
+
+# إعداد مسار ملف Excel
+FILE_PATH = "responses.xlsx"
 
 # الأسئلة
 QUESTIONS = [
@@ -16,52 +19,28 @@ QUESTIONS = [
     ("هل أنت مقيم في البحرين؟", ["نعم", "لا"])
 ]
 
-# إعداد الاتصال بقاعدة بيانات MySQL
-def connect_to_database():
-    connection = mysql.connector.connect(
-        host=os.getenv("mysql.railway.internal"),
-        user=os.getenv("root"),
-        password=os.getenv("dvetBSQBIlISKihNMrmDNPUMUPTvVMGQ"),
-        database=os.getenv("railway"),
-        port=int(os.getenv("3306"))
-    )
-    return connection
-
-# إنشاء الجدول إذا لم يكن موجودًا
-def initialize_database():
-    connection = connect_to_database()
-    cursor = connection.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS responses (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            add_date TIMESTAMP,
-            username VARCHAR(255),
-            nationality VARCHAR(50),
-            age VARCHAR(50),
-            gender VARCHAR(10),
-            resident VARCHAR(10),
-            phone_number VARCHAR(20)
-        )
-    ''')
-    connection.commit()
-    cursor.close()
-    connection.close()
-
-# حفظ البيانات في قاعدة البيانات
-def save_to_database(username, answers, phone_number=None):
-    connection = connect_to_database()
-    cursor = connection.cursor()
-    add_date = datetime.now()
-    nationality, age, gender, resident = answers
-
-    cursor.execute('''
-        INSERT INTO responses (add_date, username, nationality, age, gender, resident, phone_number)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-    ''', (add_date, username, nationality, age, gender, resident, phone_number if phone_number else None))
-
-    connection.commit()
-    cursor.close()
-    connection.close()
+# إنشاء أو تحديث ملف Excel
+def save_to_excel(username, answers, phone_number=None):
+    # تحقق مما إذا كان الملف موجودًا أو إنشاء جديد
+    file_exists = os.path.isfile(FILE_PATH)
+    if file_exists:
+        workbook = load_workbook(FILE_PATH)
+        sheet = workbook.active
+    else:
+        workbook = Workbook()
+        sheet = workbook.active
+        # إضافة رؤوس الأعمدة
+        headers = ["تاريخ الإضافة", "اسم المستخدم", "الجنسية", "العمر", "الجنس", "الإقامة في البحرين", "رقم الهاتف"]
+        sheet.append(headers)
+    
+    # إضافة صف جديد للبيانات
+    add_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    row = [add_date, username, *answers, phone_number if phone_number else ""]
+    sheet.append(row)
+    
+    # حفظ الملف
+    workbook.save(FILE_PATH)
+    print(f"Data saved to {FILE_PATH}")
 
 # رسالة ترحيب أولية
 async def welcome_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -100,17 +79,14 @@ async def finish_quiz(query, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     group_link = BAHRAIN_GROUP_LINK if nationality == "بحريني" else OTHER_GROUP_LINK
 
-    # حفظ بيانات المستخدم في قاعدة البيانات
+    # حفظ بيانات المستخدم في ملف Excel
     phone_number = query.message.contact.phone_number if query.message.contact else None
-    save_to_database(user.username, answers, phone_number)
+    save_to_excel(user.username, answers, phone_number)
 
     await query.message.reply_text(f"شكرًا لإجابتك على الأسئلة! يمكنك الانضمام إلى القروب المناسب من هنا: {group_link}")
 
 # إعداد التطبيق
 def main() -> None:
-    # إنشاء الجدول عند بدء التشغيل
-    initialize_database()
-
     app = Application.builder().token("7324354293:AAESUs8cyUVS6lt1TXE3hNVx4uC3u1nBSfU").build()
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, welcome_message))
