@@ -1,10 +1,10 @@
 import os
+import multiprocessing
 from flask import Flask, send_from_directory
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 from openpyxl import Workbook, load_workbook
 from datetime import datetime
-import threading
 
 # إعداد القروبات
 BAHRAIN_GROUP_LINK = "@Rashed_bahrain"
@@ -81,7 +81,7 @@ async def finish_quiz(query, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     await query.message.reply_text(f"شكرًا لإجابتك على الأسئلة! يمكنك الانضمام إلى القروب المناسب من هنا: {group_link}")
 
-# إعداد تطبيق Telegram
+# تشغيل تطبيق Telegram
 def start_telegram_bot():
     app = Application.builder().token("7324354293:AAESUs8cyUVS6lt1TXE3hNVx4uC3u1nBSfU").build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, welcome_message))
@@ -96,7 +96,12 @@ flask_app = Flask(__name__)
 def download_file():
     return send_from_directory(os.getcwd(), FILE_PATH, as_attachment=True)
 
-# بدء Flask وTelegram معاً
+# بدء Flask وTelegram في عمليات منفصلة
 if __name__ == "__main__":
-    threading.Thread(target=start_telegram_bot).start()
+    telegram_process = multiprocessing.Process(target=start_telegram_bot)
+    telegram_process.start()
+
+    # تشغيل تطبيق Flask
     flask_app.run(host="0.0.0.0", port=5000)
+
+    telegram_process.join()
