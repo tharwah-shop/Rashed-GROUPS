@@ -23,7 +23,7 @@ def connect_to_database():
         user=os.getenv("root"),
         password=os.getenv("dvetBSQBIlISKihNMrmDNPUMUPTvVMGQ"),
         database=os.getenv("railway"),
-        port=os.getenv("3306")
+        port=int(os.getenv("3306"))
     )
     return connection
 
